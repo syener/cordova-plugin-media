@@ -1,4 +1,4 @@
-/*
+﻿/*
  *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -132,7 +132,7 @@ module.exports = {
     },
 
     // Start recording audio
-    startRecordingAudio:function(win, lose, args) {
+    startRecordingAudio: function(win, lose, args) {
         var id = args[0];
         var src = args[1];
 
@@ -140,23 +140,27 @@ module.exports = {
         var destPath = normalizedSrc.substr(0, normalizedSrc.lastIndexOf('\\'));
         var destFileName = normalizedSrc.replace(destPath + '\\', '');
 
-        // Initialize device
-        Media.prototype.mediaCaptureMgr = null;
-        var thisM = (Media.get(id));
-        var captureInitSettings = new Windows.Media.Capture.MediaCaptureInitializationSettings();
-        captureInitSettings.streamingCaptureMode = Windows.Media.Capture.StreamingCaptureMode.audio;
-        thisM.mediaCaptureMgr = new Windows.Media.Capture.MediaCapture();
-        thisM.mediaCaptureMgr.addEventListener("failed", lose);
-
-        thisM.mediaCaptureMgr.initializeAsync(captureInitSettings).done(function (result) {
-            thisM.mediaCaptureMgr.addEventListener("recordlimitationexceeded", lose);
-            thisM.mediaCaptureMgr.addEventListener("failed", lose);
-            
-            // Start recording
-            Windows.Storage.ApplicationData.current.temporaryFolder.createFileAsync(destFileName, Windows.Storage.CreationCollisionOption.replaceExisting).done(function (newFile) {
+        Windows.Storage.StorageFolder.getFolderFromPathAsync(destPath).done(function(folder) {
+            var destFolder = folder;
+            destFolder.createFileAsync(destFileName, Windows.Storage.CreationCollisionOption.replaceExisting).done(function(newFile) {
                 recordedFile = newFile;
-                var encodingProfile = null;
-                switch (newFile.fileType) {
+
+                // Initialize device
+                Media.prototype.mediaCaptureMgr = null;
+                var thisM = (Media.get(id));
+                var captureInitSettings = new Windows.Media.Capture.MediaCaptureInitializationSettings();
+                captureInitSettings.streamingCaptureMode = Windows.Media.Capture.StreamingCaptureMode.audio;
+                thisM.mediaCaptureMgr = new Windows.Media.Capture.MediaCapture();
+                thisM.mediaCaptureMgr.addEventListener("failed", lose);
+
+                thisM.mediaCaptureMgr.initializeAsync(captureInitSettings).done(function(result) {
+                    thisM.mediaCaptureMgr.addEventListener("recordlimitationexceeded", lose);
+                    thisM.mediaCaptureMgr.addEventListener("failed", lose);
+
+
+                    // Start recording 
+                    var encodingProfile = null;
+                    switch (newFile.fileType) {
                     case '.m4a':
                         encodingProfile = Windows.Media.MediaProperties.MediaEncodingProfile.createM4a(Windows.Media.MediaProperties.AudioEncodingQuality.auto);
                         break;
@@ -169,8 +173,9 @@ module.exports = {
                     default:
                         lose("Invalid file type for record");
                         break;
-                }
-                thisM.mediaCaptureMgr.startRecordToStorageFileAsync(encodingProfile, newFile).done(win, lose);
+                    }
+                    thisM.mediaCaptureMgr.startRecordToStorageFileAsync(encodingProfile, newFile).done(win, lose);
+                }, lose);
             }, lose);
         }, lose);
     },
@@ -185,9 +190,12 @@ module.exports = {
         var destFileName = normalizedSrc.replace(destPath + '\\', '');
 
         thisM.mediaCaptureMgr.stopRecordAsync().done(function () {
+
             if (destPath) {
-                Windows.Storage.StorageFolder.getFolderFromPathAsync(destPath).done(function(destFolder) {
-                    recordedFile.copyAsync(destFolder, destFileName, Windows.Storage.CreationCollisionOption.replaceExisting).done(win, lose);
+                Windows.Storage.StorageFolder.getFolderFromPathAsync(destPath).done(function (destFolder) {
+                    if (destFolder.path + "\\" + recordedFile.name != recordedFile.path) {
+                        recordedFile.copyAsync(destFolder, destFileName, Windows.Storage.CreationCollisionOption.replaceExisting).done(win, lose);
+                        }
                 }, lose);
             } else {
                 // if path is not defined, we leave recorded file in temporary folder (similar to iOS)
